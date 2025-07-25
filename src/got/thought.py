@@ -111,6 +111,31 @@ class TopicsThought(Thought):
         }
 
 
+class SentenceThought(Thought):
+    @property
+    def schema(self) -> dict:
+        return {
+            "type": "object",
+            "required": ["sentence", "context"],
+            "properties": {
+                "sentence": {"type": "string"},
+                "context": {"type": "string"},
+                "title": {"type": "string"}
+            }
+        }
+
+    def get_for_template(self, key: str) -> str:
+        match key:
+            case "sentence":
+                return str(self._values["sentence"])
+            case "context":
+                return str(self._values["context"])
+            case "title":
+                return str(self._values.get("title", ""))
+            case _:
+                raise KeyError(f"Campo '{key}' non valido per SentenceThought")
+
+
 # Esempio di utilizzo
 if __name__ == "__main__":
     # Creazione di un InterviewThought

@@ -1,106 +1,95 @@
-from typing import Dict, Type, List
-
-from src.got.node import GoTNode,LLMConfig
+from typing import Dict, Type
+from src.got.node import GoTNode, LLMConfig
 from src.got.thought import Thought
-from .interview_analyzer import InterviewAnalyzer, InterviewThought, TopicThought
-from .decontextualizer import Decontextualizer, SentenceThought, DecontextualizedThought
+from interview_analyzer import InterviewAnalyzer, InterviewThought, SentenceThought
+from decontextualizer import Decontextualizer, DecontextualizedThought
 
-
-
-class TopicToSentenceBridge(GoTNode):
-    """Bridge to convert TopicThought to SentenceThought for Decontextualizer"""
-
-    def __init__(self, node_id: str, llm_config: LLMConfig):
-        super().__init__(node_id, llm_config)
-
-    @property
-    def input_thoughts(self) -> List[Type[Thought]]:
-        return [TopicThought]
-
-    @property
-    def output_thoughts(self) -> Type[Thought]:
-        return SentenceThought
-
-    @property
-    def output_cardinality(self) -> int:
-        return 1
-
-    def process(self, inputs: Dict[str, Thought]) -> None:
-        try:
-            topic = list(inputs.values())[0]
-            sentence = SentenceThought(f"{self.node_id}_output")
-            sentence.values = {
-                "sentence": topic.values["content"],
-                "context": topic.values["source"]
-            }
-            self.outputs = [sentence]
-        except Exception as e:
-            self.set_error(f"Error in bridge: {str(e)}")
 
 def process_interview():
-    # Configure LLM
+    # LLM config
     llm_config = LLMConfig(
-        name="mistral:instruct",
+        name="llama2:7b",
         temperature=0.1,
         repeat_penalty=1.2,
         top_p=0.9,
         num_ctx=4096
     )
 
-    # Sample text
+    # Full input text (context for all sentences)
     sample_text = """
-    My name is Maria. I am a professional caregiver. I am working in 'Angeli Custodi' since 5 years.
-    My main responsibility is to provide social assistance to guests.
-    My work is also to receive and talk with guests' relatives.
-    We must handle guests' anxiety that is due to their desire to live normally,
-    have social relationships and receive a good service.
-    I use a computer to write the daily report. Sometimes I use to take notes in a block note during my shift,
-    so I must to re-write all before leaving.
+    My name is Maria. I am a professional caregiver and I have been working at 'Angeli Custodi' for the past five years.
+    My primary responsibility is to offer social and emotional assistance to our elderly guests, many of whom feel isolated.
+    I frequently talk with the guests’ family members, updating them about the emotional and physical well-being of their relatives.
+    Often, our guests express frustration or sadness because they miss their previous lifestyle.
+    Managing this emotional distress is a key part of my daily duties.
+    I write a daily report using a system that logs each guest’s activities and issues.
+    I also volunteered in a center for refugee women, where emotional support was equally essential.
     """
 
-    # Create input interview thought
+    # Step 1: Analisi dell'intervista → frasi
     interview = InterviewThought("initial_interview")
     interview.values = {
         "text": sample_text,
         "source": "interview_20240329.txt"
     }
 
-    # Step 1: Analyze interview into topics
-    analyzer = InterviewAnalyzer("analyzer", llm_config)
+    analyzer = InterviewAnalyzer("sentence_splitter", llm_config)
     analyzer.process({"input": interview})
 
     if analyzer.has_error:
         print(f"Analyzer error: {analyzer.error_message}")
         return
 
-    topic_thoughts = analyzer.outputs
+    sentence_thoughts = analyzer.outputs
 
-    # Step 2: Process each topic
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    # Step 2: Decontestualizza ogni frase
+
+    decontextualizer = Decontextualizer("shared_decontext", llm_config)
+
     decontextualized_thoughts = []
-    for i, topic in enumerate(topic_thoughts):
-        # Bridge to convert topic to sentence
-        bridge = TopicToSentenceBridge(f"bridge_{i}", llm_config)
-        bridge.process({"topic": topic})
+    for i, sent in enumerate(sentence_thoughts):
+        # Costruiamo un nuovo SentenceThought con contesto completo
+        enriched_sentence = SentenceThought(f"sent_{i}")
+        enriched_sentence.values = {
+            "sentence": sent.values["sentence"],
+            "context": sample_text.strip(),  # contesto completo
+            "title": sent.values.get("title", ""),
+            "source": sent.values.get("context", "")
+        }
 
-        if bridge.has_error:
-            print(f"Bridge error for topic {i}: {bridge.error_message}")
-            continue
+        try:
+            decontextualizer.process({"input": enriched_sentence})
 
-        # Decontextualize the sentence
-        decontextualizer = Decontextualizer(f"decontext_{i}", llm_config)
-        decontextualizer.process({"input": bridge.outputs[0]})
+            if decontextualizer.has_error:
+                print(f"[ERROR] Decontext error at sentence {i}: {decontextualizer.error_message}")
+                continue
 
-        if decontextualizer.has_error:
-            print(f"Decontextualizer error for topic {i}: {decontextualizer.error_message}")
-            continue
+            decontextualized_thoughts.extend(decontextualizer.outputs)
+            print(f"[DEBUG] Done with sentence {i + 1}")
 
-        decontextualized_thoughts.extend(decontextualizer.outputs)
+        except Exception as e:
+            print(f"[EXCEPTION] Failed at sentence {i}: {e}")
 
-    # Print results
-    print("\nDecontextualized Results:")
+    # Step 3: Output dei risultati
+    print("\n=== Decontextualized Results ===")
     for i, thought in enumerate(decontextualized_thoughts, 1):
-        print(f"\n{i}. Original: {thought.values['in_context_sentence']}")
+        print(f"\n{i}. Original:   {thought.values['in_context_sentence']}")
         print(f"   Standalone: {thought.values['standalone_sentence']}")
+        print(f"   Title:      {thought.values.get('title', '')}")
+
+    # Step 4: Lattice
+    import os
+    os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../TAACO_main')))
+    from TAACO_main.taaco_reticulator import TAACOReticulator
+
+    input_dir = "C:/Users/HP/Desktop/taaco_input/input"
+    output_dir = "C:/Users/HP/Desktop/taaco_output"
+    reticulator = TAACOReticulator(input_dir, output_dir, llm_config)
+    reticulator.build_reticle(decontextualized_thoughts)
+    reticulator.generate_lattice_document("C:/Users/HP/Desktop/output/lattice_document.txt")
+
 
 if __name__ == "__main__":
     process_interview()

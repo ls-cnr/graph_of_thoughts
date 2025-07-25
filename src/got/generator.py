@@ -278,24 +278,11 @@ class GoTGenerator(GoTNode):
             self.set_error(error_msg)
             raise
 
+    from typing import Dict
+
     def _invoke_llm(self, inputs: Dict[str, Thought]) -> str:
-        """
-        Invoca l'LLM con il template processato.
-
-        Args:
-            inputs: Dizionario che mappa i nomi degli input ai rispettivi Thought
-
-        Returns:
-            Output dell'LLM
-        """
         processed_template = self._process_template(self.template, inputs)
-
-        #print("processed_template: ")
-        #print(processed_template)
-
-        prompt = ChatPromptTemplate.from_template(processed_template)
-        chain = prompt | self.llm | StrOutputParser()
-        return chain.invoke({})
+        return self.llm.invoke(processed_template)
 
     def _process_template(self, template: str, inputs: Dict[str, Thought]) -> str:
         """

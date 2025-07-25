@@ -1,8 +1,9 @@
 from typing import List, Dict, Type
-
 from src.got.node import LLMConfig
 from src.got.thought import Thought
 from src.got.generator import GoTGenerator
+from src.got.thought import SentenceThought
+
 
 
 class InterviewThought(Thought):
@@ -24,42 +25,17 @@ class InterviewThought(Thought):
             case "source":
                 return str(self._values["source"])
             case _:
-                raise KeyError(f"Campo '{key}' non valido per SentenceThought")
-
-
-class TopicThought(Thought):
-    @property
-    def schema(self) -> dict:
-        return {
-            "type": "object",
-            "required": ["topic_name", "content", "source"],
-            "properties": {
-                "topic_name": {"type": "string"},
-                "content": {"type": "string"},
-                "source": {"type": "string"}
-            }
-        }
-
-    def get_for_template(self, key: str) -> str:
-        match key:
-            case "topic_name":
-                return str(self._values["topic_name"])
-            case "content":
-                return str(self._values["content"])
-            case "source":
-                return str(self._values["source"])
-            case _:
-                raise KeyError(f"Campo '{key}' non valido per SentenceThought")
+                raise KeyError(f"Campo '{key}' non valido")
 
 
 class InterviewAnalyzer(GoTGenerator):
     @property
     def mapping(self) -> Dict[str, Type[Thought]]:
-        return {"input" : InterviewThought}
+        return {"input": InterviewThought}
 
     @property
     def output_thoughts(self) -> Type[Thought]:
-        return TopicThought
+        return SentenceThought
 
     @property
     def output_cardinality(self) -> int:
@@ -68,32 +44,35 @@ class InterviewAnalyzer(GoTGenerator):
     @property
     def task_instruction(self) -> str:
         return """
-        You are an expert knowledge analyst. Analyze the following text and extract distinct topics.
-        Focus on fine-grained decomposition with specific rather than broad topics.
+        You are a precise analyst. Split the interview text into **distinct meaningful sentences**.
+        Each sentence should represent **one single informational unit** from the speaker.
 
-        Text: {input.text}
+        Return one object per sentence with:
+        - 'sentence': the exact sentence from the original text.
+        - 'context': the source of the interview.
+        - 'title': A short, meaningful label for the sentence content (no more than 6-8 words).
 
-        Instructions:
-        1. Include complete, unaltered text segments for each topic
-        2. Create precise, narrowly-focused topics
-        3. For Background/Professional Experience topics, include person's name/role in title
+        Original text:
+        {input.text}
         """
 
 def run_example():
     llm_config = LLMConfig(
-        name="llama2",
-        temperature=0.1,
-        top_p=0.9
+        name="llama2:7b",
+        temperature=0.2,
+        top_p=0.9,
+        repeat_penalty=1.1,
+        num_ctx=4096
     )
 
     sample_text = """
-    My name is Maria. I am a professional caregiver. I am working in 'Angeli Custodi' since 5 years.
-    My main responsibility is to provide social assistance to guests.
-    My work is also to receive and talk with guests' relatives.
-    We must handle guests' anxiety that is due to their desire to live normally,
-    have social relationships and receive a good service.
-    I use a computer to write the daily report. Sometimes I use to take notes in a block note during my shift,
-    so I must to re-write all before leaving.
+    My name is Maria. I am a professional caregiver and I have been working at 'Angeli Custodi' for the past five years.
+    My primary responsibility is to offer social and emotional assistance to our elderly guests, many of whom feel isolated.
+    I frequently talk with the guests’ family members, updating them about the emotional and physical well-being of their relatives.
+    Often, our guests express frustration or sadness because they miss their previous lifestyle.
+    Managing this emotional distress is a key part of my daily duties.
+    I write a daily report using a system that logs each guest’s activities and issues.
+    I also volunteered in a center for refugee women, where emotional support was equally essential.
     """
 
     input_thought = InterviewThought("input")
@@ -102,15 +81,18 @@ def run_example():
         "source": "interview_20240329.txt"
     }
 
-    analyzer = InterviewAnalyzer("topic_analyzer", llm_config)
+    analyzer = InterviewAnalyzer("sentence_analyzer", llm_config)
     analyzer.process({"input": input_thought})
 
     if analyzer.has_error:
         print(f"Error: {analyzer.error_message}")
     else:
-        for topic in analyzer.outputs:
-            print(f"\nTopic: {topic.values['topic_name']}")
-            print(f"Content: {topic.values['content']}")
+        for i, sentence in enumerate(analyzer.outputs, 1):
+            print(f"\n Sentence {i}:")
+            print(f"   - Title:    {sentence.values['title']}")
+            print(f"   - Context:  {sentence.values['context']}")
+            print(f"   - Sentence: {sentence.values['sentence']}")
 
 if __name__ == "__main__":
-    run_example()
+        run_example()
+

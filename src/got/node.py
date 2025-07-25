@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from abc import ABC, abstractmethod
 import json
 from jsonschema import validate, ValidationError
-from langchain_community.llms import Ollama
+#from langchain_community.llms import Ollama
+from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -31,7 +32,7 @@ class GoTNode(ABC):
         self._error_message: Optional[str] = None
 
         if llm_config:
-            self.llm = Ollama(
+            self.llm = OllamaLLM(
                 model=self.llm_config.name,
                 temperature=self.llm_config.temperature,
                 repeat_penalty=self.llm_config.repeat_penalty,
