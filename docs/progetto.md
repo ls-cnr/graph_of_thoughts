@@ -15,7 +15,7 @@ usando metriche di coesione calcolate tramite TAACO.
 
 ### 2. **TAACO Reticulator**
 - Costruisce un grafo orientato di pensieri (`Thought`) basato sulla **coesione semantica tra frasi**.
-- La coesione è calcolata usando [TAACO](https://lsa.colorado.edu/taaco.html), con parametri personalizzati.
+- La coesione è calcolata usando [TAACO](https://www.linguisticanalysistools.org/taaco.html), con parametri personalizzati.
 - Le frasi con alta coesione vengono **fuse** nello stesso nodo; le frasi con media coesione vengono estese; invece le frasi con bassa coesione  creano un nuovo nodo nel grafo.
 - Ogni nodo ottiene un titolo sintetico.
 
@@ -37,7 +37,7 @@ usando metriche di coesione calcolate tramite TAACO.
 ##  Componente `taaco_reticulator.py`
 
 ### `TAACOReticulator`
-La classe `TAACOReticulator` costruisce un **reticolo semantico (grafo orientato)** a partire da una lista di pensieri o frasi (`Thought`), utilizzando metriche di coesione testuale fornite da [TAACO](https://lsa.colorado.edu/taaco.html).  
+La classe `TAACOReticulator` costruisce un **reticolo semantico (grafo orientato)** a partire da una lista di pensieri o frasi (`Thought`), utilizzando metriche di coesione testuale fornite da [TAACO](https://www.linguisticanalysistools.org/taaco.html).  
 I nodi del grafo rappresentano gruppi di frasi semanticamente affini, mentre gli archi rappresentano relazioni concettuali tra questi gruppi.
 
 ---
@@ -482,7 +482,7 @@ Abbiamo utilizzato TAACO nella versione Python (CLI) anziché come eseguibile `.
 - permette il debug del contenuto generato dinamicamente
 
 TAACO è stato scaricato da:
-https://github.com/nlsdfg/TAACO ????
+https://github.com/LCR-ADS-Lab/TAACO
 
 ---
 

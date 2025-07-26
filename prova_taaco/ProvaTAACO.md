@@ -1,6 +1,6 @@
 # TAACO - Test di coesione testuale
 
-Questo script esegue un'analisi automatica di coesione testuale su un insieme di file .txt usando il modulo TAACO_module. I risultati vengono salvati in un file .csv nella cartella di output specificata.
+Questo script esegue un'analisi automatica di coesione testuale su un insieme di file .txt usando il modulo TAACO_module (ridenominazione di TAACO_2.1.3.py). I risultati vengono salvati in un file .csv nella cartella di output specificata.
 
 ##  Struttura delle cartelle
 
